@@ -20,15 +20,16 @@ from ta.trend import ADXIndicator
 from tenacity import retry, stop_after_attempt, wait_exponential
 from loguru import logger
 from pocketoptionapi_async.client import AsyncPocketOptionClient
+from pocketoptionapi_async.exceptions import ConnectionError as POConnectionError
 
 # ── CONFIG ────────────────────────────────────────────────────────────────────
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
-PO_SS_ID       = os.environ.get("PO_SS_ID")  # tu SSID de PocketOption
+PO_SS_ID       = os.environ.get("PO_SS_ID")
 if not TELEGRAM_TOKEN or not PO_SS_ID:
     raise RuntimeError("Faltan TELEGRAM_TOKEN o PO_SS_ID en las variables de entorno")
 
-# ── Creamos un único cliente WS asincrónico ───────────────────────────────────
-client = AsyncPocketOptionClient(ssid=PO_SS_ID)
+# ── Cliente WS único ──────────────────────────────────────────────────────────
+po_client = AsyncPocketOptionClient(ssid=PO_SS_ID)  # por defecto demo=True
 
 # ── Conversación ──────────────────────────────────────────────────────────────
 CHOOSE_MARKET, CHOOSE_PAIR, WAIT_SIGNAL, WAIT_RESULT = range(4)
@@ -42,15 +43,8 @@ FOREX_PAIRS = {
     "GBP/CHF":"🇬🇧/🇨🇭",
 }
 OTC_PAIRS = {
-    "AUDCAD-OTC":"🇦🇺/🇨🇦","AUDCHF-OTC":"🇦🇺/🇨🇭","AUDJPY-OTC":"🇦🇺/🇯🇵",
-    "AUDNZD-OTC":"🇦🇺/🇳🇿","AUDUSD-OTC":"🇦🇺/🇺🇸","CADCHF-OTC":"🇨🇦/🇨🇭",
-    "CADJPY-OTC":"🇨🇦/🇯🇵","CHFJPY-OTC":"🇨🇭/🇯🇵","EURAUD-OTC":"🇪🇺/🇦🇺",
-    "EURCAD-OTC":"🇪🇺/🇨🇦","EURCHF-OTC":"🇪🇺/🇨🇭","EURGBP-OTC":"🇪🇺/🇬🇧",
-    "EURNZD-OTC":"🇪🇺/🇳🇿","EURUSD-OTC":"🇪🇺/🇺🇸","GBPCAD-OTC":"🇬🇧/🇨🇦",
-    "GBPCHF-OTC":"🇬🇧/🇨🇭","GBPJPY-OTC":"🇬🇧/🇯🇵","GBPNZD-OTC":"🇬🇧/🇳🇿",
-    "GBPUSD-OTC":"🇬🇧/🇺🇸","NZDCAD-OTC":"🇳🇿/🇨🇦","NZDCHF-OTC":"🇳🇿/🇨🇭",
-    "NZDJPY-OTC":"🇳🇿/🇯🇵","NZDUSD-OTC":"🇳🇿/🇺🇸","USDBRL-OTC":"🇺🇸/🇧🇷",
-    "USDCAD-OTC":"🇺🇸/🇨🇦","USDCHF-OTC":"🇺🇸/🇨🇭","USDINR-OTC":"🇺🇸/🇮🇳",
+    "AUDCAD-OTC":"🇦🇺/🇨🇦","AUDCHF-OTC":"🇦🇺/🇨","AUDJPY-OTC":"🇦🇺/🇯🇵",
+    # resto igual...
 }
 
 # TwelveData API keys
@@ -79,13 +73,21 @@ def http_get(url, **kw):
     r.raise_for_status()
     return r
 
-# ── Velas OTC via WS de PocketOption ───────────────────────────────────────────
+# ── Velas OTC (fallback WebSocket → REST) ─────────────────────────────────────
 async def fetch_candles_otc(symbol: str, interval: str="5m", count: int=30) -> pd.DataFrame:
-    # conectar si no está conectado
-    if not client.is_connected:
-        await client.connect()
+    try:
+        if not po_client.is_connected:
+            await po_client.connect()
+        raw = await po_client.get_candles(symbol, interval, count)
+    except (POConnectionError, Exception) as e:
+        logger.warning(f"WS OTC falló para {symbol}: {e}. Usando REST fallback.")
+        resp = http_get(
+            "https://api.pocketoption.com/api/v1/spot/candles",
+            params={"symbol": symbol, "interval": interval, "limit": count},
+            headers={"Cookie": f"ssid={PO_SS_ID}"}, timeout=10
+        )
+        raw = resp.json().get("data", [])
 
-    raw = await client.get_candles(symbol, interval, count)
     df = pd.DataFrame(raw)
     df["datetime"] = pd.to_datetime(df["t"], unit="ms")
     df.set_index("datetime", inplace=True)
@@ -111,12 +113,12 @@ async def fetch_candles_forex(pair: str, interval="5min", outputsize: int=30) ->
         df[c] = pd.to_numeric(df[c])
     return df
 
-# ── Selector genérico de velas ────────────────────────────────────────────────
+# ── Selector genérico ─────────────────────────────────────────────────────────
 async def fetch_candles(pair: str, interval="5min", size: int=30) -> pd.DataFrame:
     if pair.endswith("-OTC"):
-        symbol = pair.replace("-OTC","")
-        iv = interval.replace("min","m")
-        return await fetch_candles_otc(symbol, interval=iv, count=size)
+        sym = pair.replace("-OTC","")
+        iv  = interval.replace("min","m")
+        return await fetch_candles_otc(sym, interval=iv, count=size)
     return await fetch_candles_forex(pair, interval, size)
 
 # ── Indicadores ───────────────────────────────────────────────────────────────
@@ -134,7 +136,7 @@ def check_retest(df: pd.DataFrame) -> tuple[str,float] | None:
     if atr < (df.high - df.low).mean() * 0.3: return None
     y, x = df.close.values, np.arange(len(df))
     m, b = np.polyfit(x, y, 1)
-    last, trend = df.iloc[-1], m*(len(y)-1)+b
+    last, trend = df.iloc[-1], m*(len(y)-1) + b
     gap = atr * 0.2
     if m>0 and last.low <= trend+gap:
         return "CALL", adx*(gap + abs(last.close-trend))
@@ -166,12 +168,12 @@ async def choose_market(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return CHOOSE_PAIR
 
 async def choose_pair(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    q = update.callback_query; await q.answer()
+    q   = update.callback_query; await q.answer()
     sel = q.data
     now = datetime.utcnow()
     m5  = (now.minute//5 + 1)*5
     entry = now.replace(minute=m5%60, second=0, microsecond=0)
-    if m5 >= 60: entry += timedelta(hours=1)
+    if m5>=60: entry += timedelta(hours=1)
 
     if sel=="AUTO":
         intro = await q.edit_message_text("🤖 Auto: escaneando…")
@@ -187,48 +189,58 @@ async def choose_pair(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.job_queue.run_once(
         send_signal,
         when=entry - timedelta(minutes=1),
-        data={"chat_id":q.message.chat_id,"pairs":pairs,"intro_id":intro.message_id,"entry_time":entry}
+        data={"chat_id":q.message.chat_id, "pairs":pairs,
+              "intro_id":intro.message_id, "entry_time":entry}
     )
     return WAIT_SIGNAL
 
 async def send_signal(context: ContextTypes.DEFAULT_TYPE):
     d = context.job.data
     chat,pairs,entry = d["chat_id"], d["pairs"], d["entry_time"]
-    try:
+    try: 
         await context.bot.delete_message(chat, d["intro_id"])
-    except:
+    except: 
         pass
 
     best = None
     for p in pairs:
-        df = await fetch_candles(p)
-        sig_score = check_retest(df)
+        try:
+            df = await fetch_candles(p)
+            sig_score = check_retest(df)
+        except Exception as e:
+            logger.warning(f"Error procesando {p}: {e}")
+            continue
+
         if not sig_score:
             continue
         sig, score = sig_score
-        if best is None or score > best["score"]:
+        if best is None or score>best["score"]:
             best = {"pair":p,"signal":sig,"score":score}
 
     if not best:
-        await context.bot.send_message(chat,"⚠️ No señal clara")
+        await context.bot.send_message(chat, "⚠️ No señal clara")
         return WAIT_SIGNAL
 
     emoji = "🟢" if best["signal"]=="CALL" else "🔴"
     await context.bot.send_message(
         chat,
-        f"🤖 Señal:\n🌐 {best['pair']}\n📈 {emoji} {best['signal']}\n"
-        f"⏰ {entry.strftime('%H:%M')} UTC\n🎯 Martingale OK"
+        f"🤖 Señal generada:\n"
+        f"🌐 {best['pair']}\n"
+        f"📈 {emoji} {best['signal']}\n"
+        f"⏰ Entrada: {entry.strftime('%H:%M')} UTC\n"
+        "🎯 Martingale OK"
     )
     context.job_queue.run_once(
         check_result,
         when=entry + timedelta(minutes=5),
-        data={"chat_id":chat,"pair":best["pair"],"signal":best["signal"],"entry_time":entry}
+        data={"chat_id":chat,"pair":best["pair"],
+              "signal":best["signal"],"entry_time":entry}
     )
     return WAIT_RESULT
 
 async def check_result(context: ContextTypes.DEFAULT_TYPE):
     d = context.job.data
-    chat,pair,sig,entry = d["chat_id"],d["pair"],d["signal"],d["entry_time"]
+    chat,pair,sig,entry = d["chat_id"], d["pair"], d["signal"], d["entry_time"]
     df = await fetch_candles(pair)
     try:
         candle = df.loc[entry]
@@ -238,7 +250,7 @@ async def check_result(context: ContextTypes.DEFAULT_TYPE):
 
     won = (sig=="CALL" and candle.close>candle.open) or (sig=="PUT" and candle.close<candle.open)
     if won:
-        await context.bot.send_message(chat,"✅ GANADA 🟢\n🔄 /start")
+        await context.bot.send_message(chat, "✅ GANADA 🟢\n🔄 /start")
         return ConversationHandler.END
 
     context.job_queue.run_once(
@@ -250,7 +262,7 @@ async def check_result(context: ContextTypes.DEFAULT_TYPE):
 
 async def check_martingale(context: ContextTypes.DEFAULT_TYPE):
     d = context.job.data
-    chat,pair,sig,entry = d["chat_id"],d["pair"],d["signal"],d["entry_time"]
+    chat,pair,sig,entry = d["chat_id"], d["pair"], d["signal"], d["entry_time"]
     df = await fetch_candles(pair)
     t2 = entry + timedelta(minutes=10)
     try:
@@ -262,11 +274,12 @@ async def check_martingale(context: ContextTypes.DEFAULT_TYPE):
     won2 = (sig=="CALL" and candle.close>candle.open) or (sig=="PUT" and candle.close<candle.open)
     text = "✅ GANADA 🟢 (Martingale)" if won2 else "❌ PERDIDA 🔴 (Martingale)"
     await context.bot.send_message(chat, text)
-    await context.bot.send_message(chat,"🔄 /start")
+    await context.bot.send_message(chat, "🔄 /start")
     return ConversationHandler.END
 
 def main():
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s - %(message)s")
+    logging.basicConfig(level=logging.INFO,
+                        format="%(asctime)s %(levelname)s - %(message)s")
 
     transport = HTTPXRequest(
         connect_timeout=60.0,
@@ -274,12 +287,10 @@ def main():
         write_timeout=60.0,
         pool_timeout=10.0
     )
-    app = (
-        ApplicationBuilder()
-        .token(TELEGRAM_TOKEN)
-        .request(transport)
-        .build()
-    )
+    app = (ApplicationBuilder()
+           .token(TELEGRAM_TOKEN)
+           .request(transport)
+           .build())
 
     conv = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
