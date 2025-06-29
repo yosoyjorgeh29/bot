@@ -6,3 +6,4 @@ ta
 twelvedata
 apscheduler
 tenacity
+loguru
