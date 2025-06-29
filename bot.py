@@ -43,7 +43,7 @@ FOREX_PAIRS = {
     "GBP/CHF":"🇬🇧/🇨🇭",
 }
 OTC_PAIRS = {
-   "AUDCAD-OTC":"🇦🇺/🇨🇦","AUDCHF-OTC":"🇦🇺/🇨🇭","AUDJPY-OTC":"🇦🇺/🇯🇵",
+    "AUDCAD-OTC":"🇦🇺/🇨🇦","AUDCHF-OTC":"🇦🇺/🇨🇭","AUDJPY-OTC":"🇦🇺/🇯🇵",
     "AUDNZD-OTC":"🇦🇺/🇳🇿","AUDUSD-OTC":"🇦🇺/🇺🇸","CADCHF-OTC":"🇨🇦/🇨🇭",
     "CADJPY-OTC":"🇨🇦/🇯🇵","CHFJPY-OTC":"🇨🇭/🇯🇵","EURAUD-OTC":"🇪🇺/🇦🇺",
     "EURCAD-OTC":"🇪🇺/🇨🇦","EURCHF-OTC":"🇪🇺/🇨🇭","EURGBP-OTC":"🇪🇺/🇬🇧",
@@ -51,7 +51,7 @@ OTC_PAIRS = {
     "GBPCHF-OTC":"🇬🇧/🇨🇭","GBPJPY-OTC":"🇬🇧/🇯🇵","GBPNZD-OTC":"🇬🇧/🇳🇿",
     "GBPUSD-OTC":"🇬🇧/🇺🇸","NZDCAD-OTC":"🇳🇿/🇨🇦","NZDCHF-OTC":"🇳🇿/🇨🇭",
     "NZDJPY-OTC":"🇳🇿/🇯🇵","NZDUSD-OTC":"🇳🇿/🇺🇸","USDBRL-OTC":"🇺🇸/🇧🇷",
-    "USDCAD-OTC":"🇺🇸/🇨🇦","USDCHF-OTC":"🇺🇸/🇨🇭","USDINR-OTC":
+    "USDCAD-OTC":"🇺🇸/🇨🇦","USDCHF-OTC":"🇺🇸/🇨🇭","USDINR-OTC":"🇺🇸/🇮🇳",
 }
 
 # TwelveData API keys
@@ -80,7 +80,7 @@ def http_get(url, **kw):
     r.raise_for_status()
     return r
 
-# ── Velas OTC (fallback WebSocket → REST) ─────────────────────────────────────
+# ── Velas OTC (WS con fallback a REST) ─────────────────────────────────────────
 async def fetch_candles_otc(symbol: str, interval: str="5m", count: int=30) -> pd.DataFrame:
     try:
         if not po_client.is_connected:
@@ -196,17 +196,17 @@ async def choose_pair(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.job_queue.run_once(
         send_signal,
         when=entry - timedelta(minutes=1),
-        data={"chat_id":q.message.chat_id, "pairs":pairs,
-              "intro_id":intro.message_id, "entry_time":entry}
+        data={"chat_id":q.message.chat_id,"pairs":pairs,
+              "intro_id":intro.message_id,"entry_time":entry}
     )
     return WAIT_SIGNAL
 
 async def send_signal(context: ContextTypes.DEFAULT_TYPE):
     d = context.job.data
     chat,pairs,entry = d["chat_id"], d["pairs"], d["entry_time"]
-    try: 
+    try:
         await context.bot.delete_message(chat, d["intro_id"])
-    except: 
+    except:
         pass
 
     best = None
@@ -221,7 +221,7 @@ async def send_signal(context: ContextTypes.DEFAULT_TYPE):
         if not sig_score:
             continue
         sig, score = sig_score
-        if best is None or score>best["score"]:
+        if best is None or score > best["score"]:
             best = {"pair":p,"signal":sig,"score":score}
 
     if not best:
