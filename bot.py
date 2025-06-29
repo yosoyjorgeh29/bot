@@ -24,13 +24,13 @@ from pocketoptionapi_async.client import PocketOptionClient
 
 # ── CONFIG ────────────────────────────────────────────────────────────────────
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN", "7671720295:AAE2lS117sYptYhCmGBAXJz4PD75GK70pZc")
-PO_SS_ID      = os.environ.get("PO_SS_ID", "j81feavf9obsnt8ja2s6geq2k1")
+PO_SS_ID      = os.environ.get("PO_SS_ID", "42["auth",{"session":"j81feavf9obsnt8ja2s6geq2k1","isDemo":1,"uid":105267838,"platform":2,"isFastHistory":true,"isOptimized":true}]")
 TW_1 = os.environ.get("TWELVE_KEY_1", "f41974fed18f4abe9d5d95a633087f26")
 TW_2 = os.environ.get("TWELVE_KEY_2", "992d5b4012c1486e918a478d95ca8740")
 TW_3 = os.environ.get("TWELVE_KEY_3", "df99225aa1dd41958ff3414cf351b8b8")
 TW_4 = os.environ.get("TWELVE_KEY_4", "84104351426c4daea9fd70f598f7490c")
 TW_5 = os.environ.get("TWELVE_KEY_5", "1ea81844682e45a6b29fa75c8c3adc38")
-TW_6 = os.environ.get("TWELVE_KEY_6", "42["auth",{"session":"j81feavf9obsnt8ja2s6geq2k1","isDemo":1,"uid":105267838,"platform":2,"isFastHistory":true,"isOptimized":true}]")
+TW_6 = os.environ.get("TWELVE_KEY_6", "fae654949bf74f609361d4c05e028c22")
 
 # ── Estados de la conversación ────────────────────────────────────────────────
 CHOOSE_MARKET, CHOOSE_PAIR, WAIT_SIGNAL, WAIT_RESULT = range(4)
