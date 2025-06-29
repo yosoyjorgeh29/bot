@@ -256,14 +256,20 @@ async def check_martingale(context: ContextTypes.DEFAULT_TYPE):
     return ConversationHandler.END
 
 def main():
-    # ── Conectamos antes al WS de PocketOption ───────────────────────────────  <<< Nuevo
-    asyncio.get_event_loop().run_until_complete(po_client.connect())
-    logger.info("✅ Conectado a PocketOption WS")
-
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s - %(message)s")
-    transport = HTTPXRequest(connect_timeout=60.0, read_timeout=60.0,
-                             write_timeout=60.0, pool_timeout=10.0)
-    app = ApplicationBuilder().token(TELEGRAM_TOKEN).request(transport).build()
+
+    transport = HTTPXRequest(
+        connect_timeout=60.0,
+        read_timeout=60.0,
+        write_timeout=60.0,
+        pool_timeout=10.0
+    )
+    app = (
+        ApplicationBuilder()
+        .token(TELEGRAM_TOKEN)
+        .request(transport)
+        .build()
+    )
 
     conv = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
@@ -276,7 +282,10 @@ def main():
         per_chat=True,
     )
     app.add_handler(conv)
+
+    # aquí sólo arrancamos el polling
     app.run_polling()
 
 if __name__ == "__main__":
     main()
+
