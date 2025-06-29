@@ -42,15 +42,15 @@ FOREX_PAIRS = {
     "GBP/CHF":"🇬🇧/🇨",
 }
 OTC_PAIRS = {
-    "AUDCAD-OTC":"🇦🇺/🇨🇦","AUDCHF-OTC":"🇦🇺/🇨","AUDJPY-OTC":"🇦🇺/🇯🇵",
-    "AUDNZD-OTC":"🇦🇺/🇳🇿","AUDUSD-OTC":"🇦🇺/🇺🇸","CADCHF-OTC":"🇨🇦/🇨",
-    "CADJPY-OTC":"🇨🇦/🇯🇵","CHFJPY-OTC":"🇨/🇯🇵","EURAUD-OTC":"🇪🇺/🇦🇺",
-    "EURCAD-OTC":"🇪🇺/🇨","EURCHF-OTC":"🇪🇺/🇨","EURGBP-OTC":"🇪/🇬🇧",
-    "EURNZD-OTC":"🇪🇺/🇳","EURUSD-OTC":"🇪🇺/🇺","GBPCAD-OTC":"🇬🇧/🇨",
-    "GBPCHF-OTC":"🇬🇧/🇨","GBPJPY-OTC":"🇬🇧/🇯","GBPNZD-OTC":"🇬🇧/🇳",
-    "GBPUSD-OTC":"🇬🇧/🇺","NZDCAD-OTC":"🇳/🇨","NZDCHF-OTC":"🇳/🇨",
-    "NZDJPY-OTC":"🇳/🇯","NZDUSD-OTC":"🇳/🇺","USDBRL-OTC":"🇺/🇧",
-    "USDCAD-OTC":"🇺/🇨","USDCHF-OTC":"🇺/🇨","USDINR-OTC":"🇺/🇮",
+    "AUDCAD-OTC":"🇦🇺/🇨🇦","AUDCHF-OTC":"🇦🇺/🇨🇭","AUDJPY-OTC":"🇦🇺/🇯🇵",
+    "AUDNZD-OTC":"🇦🇺/🇳🇿","AUDUSD-OTC":"🇦🇺/🇺🇸","CADCHF-OTC":"🇨🇦/🇨🇭",
+    "CADJPY-OTC":"🇨🇦/🇯🇵","CHFJPY-OTC":"🇨🇭/🇯🇵","EURAUD-OTC":"🇪🇺/🇦🇺",
+    "EURCAD-OTC":"🇪🇺/🇨🇦","EURCHF-OTC":"🇪🇺/🇨🇭","EURGBP-OTC":"🇪🇺/🇬🇧",
+    "EURNZD-OTC":"🇪🇺/🇳🇿","EURUSD-OTC":"🇪🇺/🇺🇸","GBPCAD-OTC":"🇬🇧/🇨🇦",
+    "GBPCHF-OTC":"🇬🇧/🇨🇭","GBPJPY-OTC":"🇬🇧/🇯🇵","GBPNZD-OTC":"🇬🇧/🇳🇿",
+    "GBPUSD-OTC":"🇬🇧/🇺🇸","NZDCAD-OTC":"🇳🇿/🇨🇦","NZDCHF-OTC":"🇳🇿/🇨🇭",
+    "NZDJPY-OTC":"🇳🇿/🇯🇵","NZDUSD-OTC":"🇳🇿/🇺🇸","USDBRL-OTC":"🇺🇸/🇧🇷",
+    "USDCAD-OTC":"🇺🇸/🇨🇦","USDCHF-OTC":"🇺🇸/🇨🇭","USDINR-OTC":
 }
 
 # TwelveData API keys
