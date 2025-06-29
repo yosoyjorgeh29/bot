@@ -1,4 +1,4 @@
-python-telegram-bot[asyncio,rate-limiter]==20.2 
+python-telegram-bot[job-queue]==20.2
 requests>=2.28
 pandas>=2.0
 numpy>=1.23
