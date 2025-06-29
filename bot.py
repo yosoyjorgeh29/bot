@@ -80,7 +80,6 @@ async def fetch_candles_otc(symbol: str, interval: str="5m", count: int=30) -> p
 
     # 2) Traemos velas por WS (método real según la API)
     raw = await client.get_candles(symbol, interval, count)
-     await client.disconnect()
 
     # 3) Convertimos a DataFrame
     df = pd.DataFrame(raw)
