@@ -28,7 +28,7 @@ if not TELEGRAM_TOKEN or not PO_SS_ID:
     raise RuntimeError("Faltan TELEGRAM_TOKEN o PO_SS_ID")
 
 # ── Creamos un único cliente WS asincrónico ───────────────────────────────────  <<< Nuevo
-po_client = AsyncPocketOptionClient(ssid=PO_SS_ID, isDemo=True)
+client = AsyncPocketOptionClient(PO_SS_ID)
 
 # ── Conversación ──────────────────────────────────────────────────────────────
 CHOOSE_MARKET, CHOOSE_PAIR, WAIT_SIGNAL, WAIT_RESULT = range(4)
@@ -79,7 +79,8 @@ async def fetch_candles_otc(symbol: str, interval: str="5m", count: int=30) -> p
         await po_client.connect()
 
     # 2) Traemos velas por WS (método real según la API)
-    raw = await po_client.get_candles(symbol, period=interval, limit=count)
+    raw = await client.get_candles(symbol, interval, count)
+     await client.disconnect()
 
     # 3) Convertimos a DataFrame
     df = pd.DataFrame(raw)
