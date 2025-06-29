@@ -3,32 +3,6 @@ import logging
 import asyncio
 import time
 
-import requests
-import pandas as pd
-import numpy as np
-
-from datetime import datetime, timedelta
-from tenacity import retry, stop_after_attempt, wait_exponential
-
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.request import HTTPXRequest
-from telegram.ext import (
-    ApplicationBuilder,
-    CommandHandler,
-    CallbackQueryHandler,
-    ConversationHandler,
-    ContextTypes,
-)
-from ta.trend import ADXIndicator
-
-# ── CONFIG ────────────────────────────────────────────────────────────────────
-
-
-import os
-import logging
-import asyncio
-import time
-
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
