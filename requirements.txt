@@ -5,4 +5,3 @@ numpy>=1.23
 ta>=0.11
 tenacity>=8.2
 git+https://github.com/ChipaDevTeam/PocketOptionAPI.git@main#egg=pocketoptionapi_async&subdirectory=pocketoptionapi_async
-
