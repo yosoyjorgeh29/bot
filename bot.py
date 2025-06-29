@@ -19,15 +19,15 @@ from telegram.ext import (
 from ta.trend import ADXIndicator
 from tenacity import retry, stop_after_attempt, wait_exponential
 from loguru import logger
-from pocketoptionapi_async.client import AsyncPocketOptionClient   # <<<
+from pocketoptionapi_async.client import AsyncPocketOptionClient
 
 # ── CONFIG ────────────────────────────────────────────────────────────────────
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
-PO_SS_ID       = os.environ.get("PO_SS_ID")  # 42["auth",...]
+PO_SS_ID       = os.environ.get("PO_SS_ID")  # tu ssid JSON string
 if not TELEGRAM_TOKEN or not PO_SS_ID:
     raise RuntimeError("Faltan TELEGRAM_TOKEN o PO_SS_ID")
 
-# ── Creamos un único cliente WS asincrónico ───────────────────────────────────  <<< Nuevo
+# ── CREAMOS UN ÚNICO CLIENTE WS ASÍNCRONO ─────────────────────────────────────
 client = AsyncPocketOptionClient(PO_SS_ID)
 
 # ── Conversación ──────────────────────────────────────────────────────────────
@@ -37,16 +37,23 @@ FOREX_PAIRS = {
     "AUD/CAD":"🇦🇺/🇨🇦","AUD/JPY":"🇦🇺/🇯🇵","AUD/USD":"🇦🇺/🇺🇸",
     "AUD/CHF":"🇦🇺/🇨🇭","CAD/CHF":"🇨🇦/🇨🇭","CAD/JPY":"🇨🇦/🇯🇵",
     "CHF/JPY":"🇨🇭/🇯🇵","EUR/AUD":"🇪🇺/🇦🇺","EUR/CAD":"🇪🇺/🇨🇦",
-    "EUR/CHF":"🇪🇺/🇨","EUR/GBP":"🇪🇺/🇬🇧","USD/CAD":"🇺🇸/🇨🇦",
+    "EUR/CHF":"🇪🇺/🇨🇭","EUR/GBP":"🇪🇺/🇬🇧","USD/CAD":"🇺🇸/🇨🇦",
     "USD/CHF":"🇺🇸/🇨","USD/JPY":"🇺🇸/🇯🇵","GBP/CAD":"🇬🇧/🇨🇦",
     "GBP/CHF":"🇬🇧/🇨",
 }
 OTC_PAIRS = {
     "AUDCAD-OTC":"🇦🇺/🇨🇦","AUDCHF-OTC":"🇦🇺/🇨","AUDJPY-OTC":"🇦🇺/🇯🇵",
-    # ... resto igual ...
+    "AUDNZD-OTC":"🇦🇺/🇳🇿","AUDUSD-OTC":"🇦🇺/🇺🇸","CADCHF-OTC":"🇨🇦/🇨",
+    "CADJPY-OTC":"🇨🇦/🇯🇵","CHFJPY-OTC":"🇨/🇯🇵","EURAUD-OTC":"🇪🇺/🇦🇺",
+    "EURCAD-OTC":"🇪🇺/🇨","EURCHF-OTC":"🇪🇺/🇨","EURGBP-OTC":"🇪/🇬🇧",
+    "EURNZD-OTC":"🇪🇺/🇳","EURUSD-OTC":"🇪🇺/🇺","GBPCAD-OTC":"🇬🇧/🇨",
+    "GBPCHF-OTC":"🇬🇧/🇨","GBPJPY-OTC":"🇬🇧/🇯","GBPNZD-OTC":"🇬🇧/🇳",
+    "GBPUSD-OTC":"🇬🇧/🇺","NZDCAD-OTC":"🇳/🇨","NZDCHF-OTC":"🇳/🇨",
+    "NZDJPY-OTC":"🇳/🇯","NZDUSD-OTC":"🇳/🇺","USDBRL-OTC":"🇺/🇧",
+    "USDCAD-OTC":"🇺/🇨","USDCHF-OTC":"🇺/🇨","USDINR-OTC":"🇺/🇮",
 }
 
-# TwelveData API keys (igual que antes)
+# TwelveData API keys
 TW_KEYS = [
     os.environ.get("TWELVE_KEY_1"),
     os.environ.get("TWELVE_KEY_2"),
@@ -72,29 +79,28 @@ def http_get(url, **kw):
     r.raise_for_status()
     return r
 
-# ── Velas OTC via WS de PocketOption ───────────────────────────────────────────  <<< Modificado
+# ── Velas OTC via WS de PocketOption ───────────────────────────────────────────
 async def fetch_candles_otc(symbol: str, interval: str="5m", count: int=30) -> pd.DataFrame:
-    # 1) Aseguramos conexión
-    if not po_client.is_connected:
-        await po_client.connect()
+    if not client.is_connected:
+        await client.connect()
 
-    # 2) Traemos velas por WS (método real según la API)
     raw = await client.get_candles(symbol, interval, count)
 
-    # 3) Convertimos a DataFrame
     df = pd.DataFrame(raw)
     df["datetime"] = pd.to_datetime(df["t"], unit="ms")
     df.set_index("datetime", inplace=True)
     df.rename(columns={"o":"open","h":"high","l":"low","c":"close"}, inplace=True)
     return df.astype(float)
 
-# ── Velas Forex via TwelveData (sin cambios) ──────────────────────────────────
+# ── Velas Forex via TwelveData ───────────────────────────────────────────────
 async def fetch_candles_forex(pair: str, interval="5min", outputsize: int=30) -> pd.DataFrame:
     url = "https://api.twelvedata.com/time_series"
     params = {
-        "symbol": pair, "interval": interval,
-        "outputsize": outputsize, "apikey": PAIR_TO_KEY[pair],
-        "format": "JSON"
+        "symbol":     pair,
+        "interval":   interval,
+        "outputsize": outputsize,
+        "apikey":     PAIR_TO_KEY[pair],
+        "format":     "JSON"
     }
     r = http_get(url, params=params, timeout=10)
     data = r.json().get("values", [])[::-1]
@@ -113,9 +119,8 @@ async def fetch_candles(pair: str, interval="5min", size: int=30) -> pd.DataFram
         return await fetch_candles_otc(symbol, interval=iv, count=size)
     return await fetch_candles_forex(pair, interval, size)
 
-# ── Indicadores (igual) ───────────────────────────────────────────────────────
+# ── Indicadores ───────────────────────────────────────────────────────────────
 def compute_atr(df: pd.DataFrame, length=14) -> float:
-    # ... idéntico ...
     tr1 = df.high - df.low
     tr2 = (df.high - df.close.shift()).abs()
     tr3 = (df.low  - df.close.shift()).abs()
@@ -123,7 +128,6 @@ def compute_atr(df: pd.DataFrame, length=14) -> float:
     return float(tr.rolling(length).mean().iat[-1])
 
 def check_retest(df: pd.DataFrame) -> tuple[str,float] | None:
-    # ... idéntico ...
     adx = ADXIndicator(df.high, df.low, df.close, window=14).adx().iat[-1]
     if adx < 25: return None
     atr = compute_atr(df, 14)
@@ -138,7 +142,7 @@ def check_retest(df: pd.DataFrame) -> tuple[str,float] | None:
         return "PUT",  adx*(gap + abs(last.close-trend))
     return None
 
-# ── Handlers Telegram (idénticos) ─────────────────────────────────────────────
+# ── Handlers Telegram ─────────────────────────────────────────────────────────
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     kb = [
         [InlineKeyboardButton("💹 Forex", callback_data="MARKET_FOREX")],
@@ -162,7 +166,7 @@ async def choose_market(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return CHOOSE_PAIR
 
 async def choose_pair(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    q = update.callback_query; await q.answer()
+    q   = update.callback_query; await q.answer()
     sel = q.data
     now = datetime.utcnow()
     m5  = (now.minute//5 + 1)*5
@@ -195,7 +199,7 @@ async def send_signal(context: ContextTypes.DEFAULT_TYPE):
 
     best = None
     for p in pairs:
-        df = await fetch_candles(p)                       # <<< aquí ya es async
+        df = await fetch_candles(p)
         sig_score = check_retest(df)
         if not sig_score: continue
         sig, score = sig_score
@@ -274,18 +278,16 @@ def main():
     conv = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
         states={
-            CHOOSE_MARKET: [CallbackQueryHandler(choose_market, pattern="^MARKET_")],
-            CHOOSE_PAIR:   [CallbackQueryHandler(choose_pair)],
-            WAIT_SIGNAL:   [], WAIT_RESULT: []
+            CHOOSE_MARKET:[CallbackQueryHandler(choose_market, pattern="^MARKET_")],
+            CHOOSE_PAIR:  [CallbackQueryHandler(choose_pair)],
+            WAIT_SIGNAL:  [], WAIT_RESULT: []
         },
         fallbacks=[CommandHandler("start", start)],
         per_chat=True,
     )
     app.add_handler(conv)
 
-    # aquí sólo arrancamos el polling
     app.run_polling()
 
 if __name__ == "__main__":
     main()
-
