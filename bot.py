@@ -23,7 +23,7 @@ from ta.trend import ADXIndicator
 
 # ── CONFIG ────────────────────────────────────────────────────────────────────
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN", "7671720295:AAE2lS117sYptYhCmGBAXJz4PD75GK70pZc")
-PO_SS_ID      = os.environ.get["PO_SS_ID", "j81feavf9obsnt8ja2s6geq2k1"]
+PO_SS_ID      = os.environ.get("PO_SS_ID", "j81feavf9obsnt8ja2s6geq2k1")
 TW_1 = os.environ.get("TWELVE_KEY_1", "f41974fed18f4abe9d5d95a633087f26")
 TW_2 = os.environ.get("TWELVE_KEY_2", "992d5b4012c1486e918a478d95ca8740")
 TW_3 = os.environ.get("TWELVE_KEY_3", "df99225aa1dd41958ff3414cf351b8b8")
